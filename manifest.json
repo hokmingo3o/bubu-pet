@@ -1,0 +1,18 @@
+{
+  "name": "卜卜桌面宠物",
+  "short_name": "卜卜",
+  "description": "五月天阿信 IP 魔魔胡胡胡萝卜桌面宠物",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#f57c00",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "bubu-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

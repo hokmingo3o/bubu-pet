@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="卜卜">
+<meta name="theme-color" content="#f57c00">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="bubu-icon.png">
+<title>🥕 卜卜桌面宠物</title>
+<style>
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --lyric-font-size: 15px;
+  --lyric-color: #fff;
+  --lyric-bg: rgba(0,0,0,.75);
+  --lyric-scale: 1;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%; height: 100dvh; overflow: hidden;
+  position: fixed; inset: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none; user-select: none;
+  touch-action: manipulation;
+}
+.wallpaper {
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse at 20% 30%, rgba(255,183,77,0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 70%, rgba(129,199,132,0.12) 0%, transparent 50%),
+    linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+}
+.stage { position: fixed; inset: 0; z-index: 1; }
+/* 作者水印 */
+.watermark {
+  position: fixed; bottom: calc(80px + var(--safe-bottom)); right: 16px;
+  z-index: 1; pointer-events: none;
+  font-size: 10px; color: rgba(0,0,0,.08);
+  font-weight: 500; letter-spacing: 1px;
+  writing-mode: vertical-rl; text-orientation: mixed;
+}
+.concert-mode-stage { z-index: 8 !important; }
+.bubu {
+  position: absolute; width: 140px; height: 186px;
+  left: 50%; top: 50%; transform: translate(-50%,-50%);
+  cursor: grab; z-index: 15; touch-action: none;
+}
+.bubu:active { cursor: grabbing; }
+.bubu.dragging { transform: translate(-50%,-50%) scale(1.1); z-index: 100; }
+.bubu img {
+  width: 100%; height: 100%; object-fit: contain;
+  pointer-events: none; -webkit-user-drag: none;
+  filter: drop-shadow(0 8px 20px rgba(0,0,0,0.12));
+}
+.bubu.flip-x img { transform: scaleX(-1); }
+@keyframes float {
+  0%,100% { transform: translate(-50%,-50%) translateY(0); }
+  50% { transform: translate(-50%,-50%) translateY(-6px); }
+}
+.bubu.idle { animation: float 2.5s ease-in-out infinite; }
+@keyframes bounce {
+  0%,100% { transform: translate(-50%,-50%) translateY(0) scale(1,1); }
+  25% { transform: translate(-50%,-50%) translateY(-25px) scale(.95,1.05); }
+  50% { transform: translate(-50%,-50%) translateY(0) scale(1.05,.95); }
+  75% { transform: translate(-50%,-50%) translateY(-12px) scale(.98,1.02); }
+}
+.bubu.bouncing { animation: bounce .6s ease; }
+.bubu.dragging,.bubu.dragging.idle,.bubu.dragging.bouncing { animation: none !important; }
+.bubble {
+  position: absolute; top: -15px; left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: rgba(0,0,0,.78); color: #fff;
+  font-size: 12px; font-weight: 500;
+  padding: 6px 13px; border-radius: 15px;
+  white-space: nowrap; opacity: 0; pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+  max-width: 75vw; overflow: hidden; text-overflow: ellipsis;
+}
+.bubble.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.bubu.concert-mode .bubble {
+  white-space: normal; text-align: center;
+  max-width: 70vw; min-width: 40px;
+  word-break: keep-all;
+}
+.bubble::after {
+  content: ''; position: absolute; bottom: -5px; left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(0,0,0,.78);
+}
+.zzz { position: absolute; top: -5px; right: 0; opacity: 0; pointer-events: none; }
+.bubu.sleeping .zzz { opacity: 1; }
+.zzz span {
+  position: absolute; color: #64b5f6; font-weight: 800;
+  font-family: 'SF Pro Rounded', sans-serif;
+  animation: zzzUp 2s ease-in-out infinite;
+}
+.zzz span:nth-child(1) { font-size: 12px; right: 15px; top: 0; animation-delay: 0s; opacity: .5; }
+.zzz span:nth-child(2) { font-size: 15px; right: 5px; top: -12px; animation-delay: .4s; opacity: .7; }
+.zzz span:nth-child(3) { font-size: 19px; right: -8px; top: -26px; animation-delay: .8s; opacity: .9; }
+@keyframes zzzUp {
+  0%,100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-10px) scale(1.15); }
+}
+.hearts { position: absolute; top: 10px; left: 50%; pointer-events: none; }
+.heart {
+  position: absolute; font-size: 18px;
+  animation: heartFly 1.3s ease-out forwards;
+}
+@keyframes heartFly {
+  0% { transform: translate(-50%,0) scale(.4); opacity: 1; }
+  100% { transform: translate(var(--tx),-60px) scale(1.2); opacity: 0; }
+}
+.food {
+  position: absolute; font-size: 20px;
+  animation: foodDrop .8s ease-in forwards;
+}
+@keyframes foodDrop {
+  0% { transform: translate(-50%,-80px) scale(.5); opacity: 1; }
+  100% { transform: translate(-50%,10px) scale(1); opacity: 0; }
+}
+.toolbar {
+  position: fixed; bottom: calc(28px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
+  display: flex; gap: 12px;
+  background: rgba(255,255,255,.88);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  padding: 10px 16px; border-radius: 24px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.1); z-index: 50;
+}
+.tool-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: none; border: none; padding: 7px 12px; border-radius: 16px;
+  transition: all .15s; -webkit-tap-highlight-color: transparent;
+}
+.tool-btn:active { background: rgba(255,152,0,.15); transform: scale(.95); }
+.tool-btn .icon { font-size: 22px; line-height: 1; }
+.tool-btn .label { font-size: 10px; color: #777; font-weight: 600; white-space: nowrap; }
+.status-panel {
+  position: fixed; top: calc(50px + var(--safe-top)); right: 14px;
+  background: rgba(255,255,255,.88);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-radius: 16px; padding: 11px 14px;
+  box-shadow: 0 2px 14px rgba(0,0,0,.08); z-index: 50;
+  display: flex; flex-direction: column; gap: 7px; min-width: 110px;
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.status-panel.dragging { cursor: grabbing; opacity: .9; z-index: 200; }
+.status-panel .drag-handle {
+  text-align: center; font-size: 8px; color: #ccc; line-height: 1;
+  margin-bottom: 2px; cursor: grab; letter-spacing: 2px;
+}
+.row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #555; gap: 10px; }
+.bar { width: 75px; height: 5px; background: #e0e0e0; border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width .4s ease; }
+.bar-fill.mood { background: linear-gradient(90deg, #ffb74d, #81c784); }
+.bar-fill.full { background: linear-gradient(90deg, #ff9800, #aed581); }
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.35);
+  z-index: 200; opacity: 0; pointer-events: none; transition: opacity .25s;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+.modal-sheet {
+  background: #fff; border-radius: 26px 26px 0 0;
+  padding: 24px 20px 34px; width: 100%; max-width: 500px;
+  transform: translateY(100%);
+  transition: transform .35s cubic-bezier(.32,.72,0,1);
+}
+.modal-overlay.open .modal-sheet { transform: translateY(0); }
+.modal-title { text-align: center; font-size: 17px; font-weight: 700; color: #333; margin-bottom: 20px; }
+.dress-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+@media (max-width: 480px) {
+  .dress-grid { grid-template-columns: repeat(2,1fr); }
+}
+.dress-item {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px 4px; border-radius: 16px; border: 2px solid #f0f0f0;
+  background: #fafafa; transition: all .2s; cursor: pointer;
+}
+.dress-item.active { border-color: #ff9800; background: rgba(255,152,0,.08); }
+.dress-item .emoji { font-size: 28px; }
+.dress-item .name { font-size: 10px; color: #666; }
+.hint {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  z-index: 150;
+  background: rgba(255,255,255,.95);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  padding: 20px 22px; border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.15);
+  font-size: 13px; color: #555; line-height: 1.8;
+  max-width: 300px; text-align: center;
+  transition: opacity .4s;
+}
+.hint.fade-out { opacity: 0; pointer-events: none; }
+.hint .hint-title { font-size: 16px; font-weight: 700; color: #333; margin-bottom: 12px; }
+.hint .hint-step { text-align: left; margin: 4px 0; padding-left: 6px; }
+.hint .hint-close {
+  margin-top: 14px; padding: 8px 24px;
+  background: #ff9800; color: #fff; border: none;
+  border-radius: 12px; font-size: 14px; font-weight: 600;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.hint .hint-close:active { background: #f57c00; transform: scale(.95); }
+.music-ctrl {
+  position: fixed; top: calc(52px + var(--safe-top)); left: 50%; transform: translateX(-50%);
+  z-index: 40;
+  background: rgba(255,255,255,.85);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  padding: 6px 14px; border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  display: flex; align-items: center; gap: 6px;
+  cursor: pointer; transition: all .2s;
+}
+.music-ctrl.playing { background: rgba(255,152,0,.12); border: 1px solid rgba(255,152,0,.3); }
+.music-icon { font-size: 18px; }
+.music-label { font-size: 11px; color: #777; font-weight: 500; }
+.music-ctrl.playing .music-label { color: #e65100; }
+.play-mode-toggle {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin: 0 auto 14px; padding: 5px 14px; border-radius: 12px;
+  background: rgba(255,152,0,.08); border: 1px solid rgba(255,152,0,.2);
+  font-size: 11px; color: #e65100; cursor: pointer;
+  transition: all .2s; white-space: nowrap;
+}
+.play-mode-toggle:active { background: rgba(255,152,0,.15); transform: scale(.95); }
+.volume-bar-wrap {
+  position: fixed; top: calc(94px + var(--safe-top)); left: 50%; transform: translateX(-50%);
+  z-index: 40;
+  background: rgba(255,255,255,.85);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  padding: 8px 14px; border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  display: none; align-items: center; gap: 8px;
+}
+.volume-bar-wrap.show { display: flex; }
+.volume-bar-wrap input[type=range] {
+  width: 100px; height: 4px;
+  -webkit-appearance: none; appearance: none;
+  background: #ddd; border-radius: 2px; outline: none;
+}
+.volume-bar-wrap input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #ff9800; cursor: pointer;
+}
+.volume-val { font-size: 10px; color: #999; min-width: 28px; text-align: center; }
+.audio-file-input { display: none; }
+.concert-overlay {
+  position: fixed; inset: 0; z-index: 5;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,.6) 0%, rgba(0,0,0,.85) 100%);
+  opacity: 0; pointer-events: none; transition: opacity .6s;
+}
+.concert-overlay.on { opacity: 1; }
+.spotlight {
+  position: absolute; bottom: 50%; left: 50%; transform: translate(-50%,0);
+  width: 200px; height: 300px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(255,200,100,.25) 0%, transparent 70%);
+  pointer-events: none;
+  animation: spotlightSway 3s ease-in-out infinite;
+}
+@keyframes spotlightSway {
+  0%,100% { transform: translate(-50%,0) rotate(-3deg); }
+  50% { transform: translate(-50%,0) rotate(3deg); }
+}
+.stage-lights { position: fixed; inset: 0; z-index: 6; pointer-events: none; opacity: 0; transition: opacity .5s; }
+.stage-lights.on { opacity: 1; }
+.light-beam {
+  position: absolute; bottom: 0;
+  width: 40px; height: 50vh;
+  opacity: .35; transform-origin: bottom center;
+  animation: beamSpin 2s linear infinite;
+}
+@keyframes beamSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.light-beam:nth-child(1) { left: 10%; background: linear-gradient(to top, #ff1744, transparent); animation-delay: 0s; animation-duration: 3s; }
+.light-beam:nth-child(2) { left: 30%; background: linear-gradient(to top, #00e5ff, transparent); animation-delay: .6s; animation-duration: 3.5s; }
+.light-beam:nth-child(3) { left: 50%; background: linear-gradient(to top, #ffea00, transparent); animation-delay: 1.2s; animation-duration: 4s; }
+.light-beam:nth-child(4) { left: 70%; background: linear-gradient(to top, #d500f9, transparent); animation-delay: .3s; animation-duration: 2.8s; }
+.light-beam:nth-child(5) { left: 90%; background: linear-gradient(to top, #76ff03, transparent); animation-delay: .9s; animation-duration: 3.2s; }
+.music-notes { position: fixed; inset: 0; z-index: 7; pointer-events: none; }
+.note-particle {
+  position: absolute; font-size: 24px; opacity: 0;
+  animation: noteFloat 3s ease-out forwards;
+}
+@keyframes noteFloat {
+  0% { transform: translateY(0) scale(.5); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(-200px) translateX(var(--nx)) scale(1.2) rotate(var(--nr)); opacity: 0; }
+}
+.microphone {
+  position: absolute; z-index: 12; pointer-events: none;
+  opacity: 0; transition: opacity .3s;
+  display: flex; flex-direction: column; align-items: center;
+}
+.microphone.show { opacity: 1; }
+.mic-head {
+  width: 14px; height: 18px;
+  background: linear-gradient(135deg, #424242, #212121);
+  border-radius: 50%;
+  border: 2px solid #616161;
+  position: relative;
+}
+.mic-head::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 6px; height: 8px;
+  background: rgba(255,255,255,.3);
+  border-radius: 50%;
+}
+.mic-handle {
+  width: 5px; height: 16px;
+  background: linear-gradient(180deg, #757575, #424242);
+  border-radius: 0 0 3px 3px;
+}
+.bubu.concert-mode img {
+  animation: concertBounce .4s ease infinite alternate;
+}
+@keyframes concertBounce {
+  0% { transform: scale(1) rotate(-2deg); }
+  100% { transform: scale(1.05) rotate(2deg); }
+}
+.crowd { position: fixed; bottom: 0; left: 0; right: 0; height: 60px; z-index: 7; pointer-events: none; opacity: 0; transition: opacity .5s; }
+.crowd.on { opacity: 1; }
+.glowstick {
+  position: absolute; bottom: 10px;
+  width: 3px; height: 30px; border-radius: 2px;
+  animation: glowWave 1s ease-in-out infinite;
+}
+@keyframes glowWave {
+  0%,100% { transform: scaleY(1); opacity: .6; }
+  50% { transform: scaleY(.6); opacity: 1; }
+}
+
+/* ===== 歌词气泡（非演唱会模式，可拖拽，支持整体缩放） ===== */
+.lyric-bubble {
+  position: fixed; bottom: 50%; left: 50%;
+  z-index: 20;
+  background: var(--lyric-bg); color: var(--lyric-color);
+  font-size: calc(var(--lyric-font-size) * var(--lyric-scale));
+  font-weight: 600; text-align: center;
+  padding: calc(10px * var(--lyric-scale)) calc(24px * var(--lyric-scale));
+  border-radius: calc(22px * var(--lyric-scale));
+  opacity: 0; transition: opacity .4s;
+  max-width: 88vw;
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: inline-block; width: max-content;
+}
+.lyric-bubble.show { opacity: 1; }
+.lyric-bubble.dragging { cursor: grabbing; opacity: .85; z-index: 200; }
+.lyric-bubble.concert-hidden { display: none !important; }
+.lyric-settings {
+  position: fixed; z-index: 21;
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-radius: 14px; padding: 10px 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  display: none; flex-wrap: wrap; gap: 8px; align-items: center;
+  font-size: 11px; color: #666;
+}
+.lyric-settings.show { display: flex; }
+.lyric-settings label { font-weight: 500; white-space: nowrap; }
+.lyric-settings input[type=range] { width: 60px; height: 3px; -webkit-appearance: none; appearance: none; background: #ddd; border-radius: 2px; }
+.lyric-settings input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #ff9800; cursor: pointer; }
+.lyric-settings .color-swatch {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid #ddd; cursor: pointer; transition: border-color .15s;
+  position: relative; overflow: hidden;
+}
+.lyric-settings .color-swatch:active { border-color: #ff9800; }
+.lyric-settings .color-swatch input[type=color] {
+  position: absolute; inset: -4px; width: calc(100% + 8px); height: calc(100% + 8px);
+  cursor: pointer; opacity: 0;
+}
+.lyric-settings .scale-btn {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid #ddd; background: #f5f5f5;
+  font-size: 16px; font-weight: 700; color: #666;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all .15s; line-height: 1;
+}
+.lyric-settings .scale-btn:active { border-color: #ff9800; background: rgba(255,152,0,.1); }
+.lyric-settings .scale-val {
+  font-size: 11px; color: #333; font-weight: 600; min-width: 32px; text-align: center;
+}
+
+/* ===== 歌曲选择弹窗 ===== */
+.song-list {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 60vh; overflow-y: auto; padding: 4px 0;
+}
+.song-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: 14px;
+  border: 2px solid #f0f0f0; background: #fafafa;
+  cursor: pointer; transition: all .2s; text-align: left;
+  position: relative; overflow: hidden;
+}
+.song-item:active { background: rgba(255,152,0,.08); }
+.song-item.playing { border-color: #ff9800; background: rgba(255,152,0,.1); }
+.song-item .song-icon { font-size: 24px; }
+.song-item .song-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.song-item .song-title { font-size: 14px; font-weight: 600; color: #333; }
+.song-item .song-artist { font-size: 11px; color: #999; }
+.song-item .song-status { font-size: 12px; color: #ff9800; }
+/* 删除按钮 */
+.song-item .delete-btn {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #ff5252; color: #fff; border: none;
+  font-size: 14px; font-weight: 700;
+  display: none; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 5; line-height: 1;
+}
+.song-item.show-delete .delete-btn { display: flex; }
+.song-item.show-delete { padding-right: 44px; }
+.upload-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 14px; margin-top: 8px;
+  border: 2px dashed #ddd; border-radius: 14px;
+  background: none; cursor: pointer;
+  font-size: 13px; color: #999; transition: all .2s;
+}
+.upload-btn:active { border-color: #ff9800; color: #ff9800; }
+.upload-btn .upload-icon { font-size: 20px; }
+</style>
+</head>
+<body>
+
+<div class="wallpaper"></div>
+<div class="watermark">小茗o3o</div>
+<div class="concert-overlay" id="concertOverlay"></div>
+<div class="stage-lights" id="stageLights">
+  <div class="light-beam"></div><div class="light-beam"></div><div class="light-beam"></div><div class="light-beam"></div><div class="light-beam"></div>
+  <div class="spotlight"></div>
+</div>
+<div class="music-notes" id="musicNotes"></div>
+<div class="crowd" id="crowd"></div>
+
+<audio id="bgMusic"></audio>
+<input type="file" class="audio-file-input" id="audioFile" accept="audio/mpeg,audio/mp3,audio/wav,audio/m4a,audio/ogg,audio/flac,.mp3,.wav,.m4a,.ogg,.flac">
+
+<div class="stage" id="stage">
+  <div class="bubu idle" id="bubu">
+    <div class="zzz" id="zzz"><span>Z</span><span>z</span><span>z</span></div>
+    <div class="hearts" id="hearts"></div>
+    <div class="food" id="food"></div>
+    <img src="bubu.png" alt="卜卜" id="bubuImg">
+    <div class="microphone" id="microphone"><div class="mic-head"></div><div class="mic-handle"></div></div>
+    <div class="bubble" id="bubble"></div>
+  </div>
+</div>
+
+<div class="status-panel" id="statusPanel">
+  <div class="drag-handle">⋮⋮</div>
+  <div class="row"><span>😊 心情</span><span id="moodText">60</span></div>
+  <div class="bar"><div class="bar-fill mood" id="moodBar" style="width:60%"></div></div>
+  <div class="row"><span>🍖 饱腹</span><span id="fullText">60</span></div>
+  <div class="bar"><div class="bar-fill full" id="fullBar" style="width:60%"></div></div>
+  <div class="row"><span>🥕 卜币</span><span id="coinsText">5</span></div>
+  <div class="row"><span>⚡ 精力</span><span id="energyText">4</span></div>
+</div>
+
+<div class="hint" id="hint">
+  <div class="hint-title">🥕 欢迎来到卜卜的小世界</div>
+  <div class="hint-step">👉 点击卜卜可以互动，长按可以抚摸，拖拽可以移动</div>
+  <div class="hint-step">🎵 听完一首歌可以获得卜卜币和精力，用来喂食和陪卜卜玩</div>
+  <div class="hint-step">📱 想变成桌面 App？点底部 Safari 分享按钮 <b>⬆️</b></div>
+  <div class="hint-step">　 再选「添加到主屏幕」就能在桌面生成卜卜 App 啦～</div>
+  <div style="margin-top:12px;font-size:11px;color:#bbb;">Made with ❤️ by 小茗o3o</div>
+  <button class="hint-close" onclick="document.getElementById('hint').classList.add('fade-out')">知道啦！</button>
+</div>
+
+<div class="music-ctrl" id="musicCtrl" onclick="toggleMusicModal()">
+  <span class="music-icon" id="musicIcon">🎵</span>
+  <span class="music-label" id="musicLabel">选择歌曲</span>
+</div>
+<div class="volume-bar-wrap" id="volumeBarWrap">
+  <span>🔉</span>
+  <input type="range" id="volumeSlider" min="0" max="100" value="50">
+  <span class="volume-val" id="volumeVal">50</span>
+</div>
+
+<div class="toolbar">
+  <button class="tool-btn" onclick="toggleFood()"><span class="icon">🍽️</span><span class="label">喂食</span></button>
+  <button class="tool-btn" onclick="pet()"><span class="icon">✋</span><span class="label">抚摸</span></button>
+  <button class="tool-btn" onclick="play()"><span class="icon">🎾</span><span class="label">玩耍</span></button>
+  <button class="tool-btn" onclick="toggleConcert()"><span class="icon">🎤</span><span class="label">演唱会</span></button>
+  <button class="tool-btn" onclick="toggleDress()"><span class="icon">👕</span><span class="label">换装</span></button>
+</div>
+
+<div class="modal-overlay" id="foodModal" onclick="closeFood(event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title">请卜卜吃东西 🍽️</div>
+    <div class="dress-grid">
+      <div class="dress-item" onclick="feed('🍲','火锅',2,3,'火锅讚啦～好飽好飽 (๑´ڡ`๑)')"><span class="emoji">🍲</span><span class="name">火锅 🥕2</span></div>
+      <div class="dress-item" onclick="feed('🍘','老北京烧饼',1,1,'燒餅超香欸～')"><span class="emoji">🍘</span><span class="name">烧饼 🥕1</span></div>
+      <div class="dress-item" onclick="feed('🍗','咸酥鸡',2,3,'鹹酥雞就是台灣No.1！٩(ˊᗜˋ*)و')"><span class="emoji">🍗</span><span class="name">咸酥鸡 🥕2</span></div>
+      <div class="dress-item" onclick="feed('🧋','奶茶',1,1,'奶茶甜甜的好幸福捏～ (◍•ᴗ•◍)❤')"><span class="emoji">🧋</span><span class="name">奶茶 🥕1</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="dressModal" onclick="closeDress(event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title">给卜卜换装</div>
+    <div class="dress-grid" id="dressGrid">
+      <div class="dress-item active" data-skin="default"><span class="emoji">🥕</span><span class="name">原始卜</span></div>
+      <div class="dress-item" data-skin="panda"><span class="emoji">🐼</span><span class="name">小熊猫</span></div>
+      <div class="dress-item" data-skin="miao-boy"><span class="emoji">🧢</span><span class="name">苗族少年</span></div>
+      <div class="dress-item" data-skin="turban"><span class="emoji">🧣</span><span class="name">头巾卜</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="lyric-bubble" id="lyricBubble"></div>
+
+<div class="lyric-settings" id="lyricSettings">
+  <label>字号</label>
+  <input type="range" id="fontSizeSlider" min="10" max="32" value="15">
+  <span id="fontSizeVal">15</span>
+  <label>缩放</label>
+  <button class="scale-btn" id="scaleDown">−</button>
+  <span class="scale-val" id="scaleVal">100%</span>
+  <button class="scale-btn" id="scaleUp">+</button>
+  <label>字体色</label>
+  <div class="color-swatch" id="fontColorSwatch" style="background:#fff">
+    <input type="color" id="fontColorPicker" value="#ffffff">
+  </div>
+  <label>背景色</label>
+  <div class="color-swatch" id="bgColorSwatch" style="background:rgba(0,0,0,.75)">
+    <input type="color" id="bgColorPicker" value="#000000">
+  </div>
+</div>
+
+<div class="modal-overlay" id="musicModal" onclick="closeMusicModal(event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title">🎵 选择歌曲 <span style="font-size:10px;color:#999;font-weight:400;">（长按可删除）</span></div>
+    <div class="play-mode-toggle" id="playModeToggle" onclick="togglePlayMode()">
+      <span id="playModeIcon">🔂</span>
+      <span id="playModeText">单曲循环</span>
+    </div>
+    <div class="song-list" id="songListContainer"></div>
+    <label class="upload-btn" for="audioFile" onclick="document.getElementById('audioFile').click();event.preventDefault()">
+      <span class="upload-icon">📁</span> 添加自己手机里的歌…
+    </label>
+  </div>
+</div>
+
+<script>
+// ===== 状态 =====
+let state = { mood:60, fullness:60, x:.5, y:.5, direction:1, skin:'default', sleeping:false, dragging:false, coins:5, energy:4, bubuScale:1 };
+const SKINS = {
+  default: 'bubu.png', panda: 'skin-panda.png',
+  'miao-boy': 'skin-miao-boy.png',
+  turban: 'skin-turban.png'
+};
+// 立即预加载所有皮肤图片，确保切换时零延迟
+const _skinCache = {};
+Object.values(SKINS).forEach(src => { const img = new Image(); img.src = src; _skinCache[src] = img; });
+const bubu = document.getElementById('bubu');
+const bubuImg = document.getElementById('bubuImg');
+const bubble = document.getElementById('bubble');
+const stage = document.getElementById('stage');
+const heartsEl = document.getElementById('hearts');
+const foodEl = document.getElementById('food');
+let walkTimer, decayTimer, bubbleTimer;
+
+function loadState() {
+  try { const s=localStorage.getItem('bubu_state'); if(s) state={...state,...JSON.parse(s)}; } catch(e){}
+  applyState();
+}
+function saveState() { try { localStorage.setItem('bubu_state',JSON.stringify(state)); } catch(e){} }
+
+function applyState() {
+  updateBars(); moveBubu(state.x,state.y,false); setSkin(state.skin,false);
+  if(state.direction<0) bubu.classList.add('flip-x');
+  applyBubuScale();
+}
+// 应用卜卜缩放（同时影响气泡）
+function applyBubuScale() {
+  const s = state.bubuScale || 1;
+  bubu.style.width = (140 * s) + 'px';
+  bubu.style.height = (186 * s) + 'px';
+  // 气泡等比缩放
+  bubble.style.fontSize = (12 * s) + 'px';
+  bubble.style.padding = (6 * s) + 'px ' + (13 * s) + 'px';
+  bubble.style.borderRadius = (15 * s) + 'px';
+}
+function moveBubu(nx,ny,animate=true) {
+  state.x=Math.max(.08,Math.min(.92,nx)); state.y=Math.max(.08,Math.min(.85,ny));
+  if(animate&&Math.abs(nx-state.x)>.001) {
+    state.direction=nx>state.x?1:-1; bubu.classList.toggle('flip-x',state.direction<0);
+  }
+  bubu.style.left=(state.x*100)+'%'; bubu.style.top=(state.y*100)+'%'; saveState();
+}
+
+// ===== 双指缩放（卜卜 + 气泡 + 歌词） =====
+let pinchInitialDist = 0;
+let pinchInitialScale = 1;
+let pinchInitialLyricScale = 1;
+let isPinching = false;
+
+function getPinchDist(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+stage.addEventListener('touchstart', function(e) {
+  if (e.touches.length === 2) {
+    // 双指触摸时取消单指拖拽
+    state.dragging = false;
+    bubu.classList.remove('dragging');
+    bubu.classList.add('idle');
+    clearTimeout(longPressTimer);
+    isPinching = true;
+    pinchInitialDist = getPinchDist(e.touches);
+    pinchInitialScale = state.bubuScale || 1;
+    pinchInitialLyricScale = lyricSettings_.scale || 1;
+    e.preventDefault();
+  }
+}, {passive: false});
+
+stage.addEventListener('touchmove', function(e) {
+  if (e.touches.length === 2 && isPinching) {
+    e.preventDefault();
+    const dist = getPinchDist(e.touches);
+    const ratio = dist / pinchInitialDist;
+    // 卜卜缩放：0.5 ~ 3
+    let newScale = Math.max(0.5, Math.min(3, pinchInitialScale * ratio));
+    state.bubuScale = newScale;
+    applyBubuScale();
+    // 歌词缩放同步
+    let newLyricScale = Math.max(0.5, Math.min(2.5, pinchInitialLyricScale * ratio));
+    lyricSettings_.scale = newLyricScale;
+    applyLyricStyle();
+    saveState();
+    saveLyricSettings();
+  }
+}, {passive: false});
+
+stage.addEventListener('touchend', function(e) {
+  if (e.touches.length < 2) {
+    isPinching = false;
+  }
+}, {passive: false});
+
+let dragStartX,dragStartY,bubuStartX,bubuStartY,longPressTimer;
+function onPointerDown(e) {
+  if(e.target.closest('.toolbar')||e.target.closest('.status-panel')||e.target.closest('.lyric-bubble')||e.target.closest('.lyric-settings')) return;
+  state.dragging=true; bubu.classList.add('dragging'); bubu.classList.remove('idle');
+  const r=stage.getBoundingClientRect();
+  const cx=e.touches?e.touches[0].clientX:e.clientX;
+  const cy=e.touches?e.touches[0].clientY:e.clientY;
+  dragStartX=cx; dragStartY=cy;
+  bubuStartX=state.x*r.width; bubuStartY=state.y*r.height;
+  longPressTimer=setTimeout(()=>{ if(state.dragging&&Math.abs(cx-dragStartX)<10&&Math.abs(cy-dragStartY)<10) pet(); },500);
+}
+function onPointerMove(e) {
+  if(!state.dragging) return;
+  const r=stage.getBoundingClientRect();
+  const cx=e.touches?e.touches[0].clientX:e.clientX;
+  const cy=e.touches?e.touches[0].clientY:e.clientY;
+  if(Math.abs(cx-dragStartX)>10||Math.abs(cy-dragStartY)>10) clearTimeout(longPressTimer);
+  const nx=(bubuStartX+cx-dragStartX)/r.width;
+  const ny=(bubuStartY+cy-dragStartY)/r.height;
+  bubu.style.left=(Math.max(.08,Math.min(.92,nx))*100)+'%';
+  bubu.style.top=(Math.max(.08,Math.min(.85,ny))*100)+'%';
+}
+function onPointerUp(e) {
+  if(!state.dragging) return;
+  clearTimeout(longPressTimer);
+  state.dragging=false; bubu.classList.remove('dragging'); bubu.classList.add('idle');
+  const cx=e.changedTouches?e.changedTouches[0].clientX:e.clientX;
+  const cy=e.changedTouches?e.changedTouches[0].clientY:e.clientY;
+  const dx=cx-dragStartX,dy=cy-dragStartY;
+  if(Math.abs(dx)<10&&Math.abs(dy)<10) { tapReact(); return; }
+  state.x=parseFloat(bubu.style.left)/100; state.y=parseFloat(bubu.style.top)/100; saveState();
+}
+bubu.addEventListener('mousedown',onPointerDown);
+bubu.addEventListener('touchstart',onPointerDown,{passive:false});
+window.addEventListener('mousemove',onPointerMove);
+window.addEventListener('touchmove',onPointerMove,{passive:false});
+window.addEventListener('mouseup',onPointerUp);
+window.addEventListener('touchend',onPointerUp);
+bubu.addEventListener('dragstart',e=>e.preventDefault());
+
+function tapReact() {
+  if(state.sleeping){ wakeUp(); return; }
+  showBubble(['會不會累啊～很簡單對不對 (◡‿◡✿)','那現在再弄快一點好不好啊 (｡•̀ᴗ-)✧','說好不說啦 (￣ε￣)','哥哥手会酸的～ (｡•́︿•̀｡)','快點！來不及啦 (ﾟДﾟ;≡;ﾟДﾟ)','我們都是五月天！(๑•̀ㅂ•́)و✧','一起唱到80歲！٩(ˊᗜˋ*)و🎶','盒盒盒盒盒 (*≧∀≦*)'].random());
+  bounce();
+}
+function feed(emoji,name,cost,fullnessGain,msg) {
+  if(state.sleeping) wakeUp();
+  // 检查币够不够
+  if (state.coins < cost) {
+    showBubble('卜卜幣不夠了啦… 聽完一首歌再來餵我嘛 (´；ω；`)');
+    closeFood();
+    return;
+  }
+  state.coins -= cost;
+  state.fullness=Math.min(100,state.fullness+fullnessGain); addMood(3);
+  showBubble(msg||(name+' 超讚的啦！(๑´ڡ`๑)')); spawnFood(emoji);
+  bounce(); saveState(); updateBars(); closeFood();
+}
+function pet() {
+  if(state.sleeping) wakeUp();
+  if (state.energy < 2) {
+    showBubble('沒有精力了捏… 聽完一首歌就有精力了喔 (◍•ᴗ•◍)');
+    return;
+  }
+  state.energy -= 2;
+  state.mood=Math.min(100,state.mood+3); showBubble('好蘇胡喔～ ♡(´∀｀)人(´∀｀)♡'); spawnHearts(4); bounce(); saveState(); updateBars();
+}
+function play() {
+  if(state.sleeping) wakeUp();
+  if (state.energy < 1) {
+    showBubble('沒有精力了捏… 聽完一首歌就有精力了喔 (◍•ᴗ•◍)');
+    return;
+  }
+  state.energy -= 1;
+  state.mood=Math.min(100,state.mood+1); showBubble('一起玩啦！٩(˃̶͈̀௰˂̶͈́)و'); bounce(); randomWalk(); saveState(); updateBars();
+}
+function addMood(n){ state.mood=Math.min(100,state.mood+n); }
+function wakeUp() { state.sleeping=false; bubu.classList.remove('sleeping'); showBubble('睡飽了～早安喔 (◍•ᴗ•◍)'); saveState(); }
+function bounce() {
+  bubu.classList.remove('idle'); bubu.classList.add('bouncing');
+  setTimeout(()=>{ bubu.classList.remove('bouncing'); if(!state.dragging) bubu.classList.add('idle'); },600);
+}
+function showBubble(text) {
+  bubble.textContent=text; bubble.classList.add('show');
+  clearTimeout(bubbleTimer); bubbleTimer=setTimeout(()=>bubble.classList.remove('show'),1800);
+}
+function spawnHearts(count) {
+  for(let i=0;i<count;i++) setTimeout(()=>{
+    const h=document.createElement('div'); h.className='heart'; h.textContent='❤️';
+    h.style.setProperty('--tx',(Math.random()*50-25)+'px'); h.style.left=(Math.random()*20-10)+'px';
+    heartsEl.appendChild(h); setTimeout(()=>h.remove(),1300);
+  },i*120);
+}
+function spawnFood(emoji) {
+  emoji = emoji || '🥕';
+  const f=document.createElement('div'); f.className='food'; f.textContent=emoji;
+  f.style.left='50%'; foodEl.appendChild(f); setTimeout(()=>f.remove(),800);
+}
+function updateBars() {
+  document.getElementById('moodBar').style.width=state.mood+'%';
+  document.getElementById('fullBar').style.width=state.fullness+'%';
+  document.getElementById('moodText').textContent=Math.round(state.mood);
+  document.getElementById('fullText').textContent=Math.round(state.fullness);
+  document.getElementById('coinsText').textContent=state.coins;
+  document.getElementById('energyText').textContent=state.energy;
+  updateBubuGrayscale();
+}
+// 心情和饱腹感都≥60 = 正常颜色；任一个<60 逐渐变黑白；任一个≤20 = 完全黑白
+function updateBubuGrayscale() {
+  const minVal = Math.min(state.mood, state.fullness);
+  let gray = 0;
+  if (minVal <= 20) gray = 1;
+  else if (minVal < 60) gray = (60 - minVal) / 40; // 线性从 0 到 1
+  bubuImg.style.filter = `drop-shadow(0 8px 20px rgba(0,0,0,0.12)) grayscale(${gray})`;
+}
+function randomWalk() {
+  if(state.dragging||state.sleeping) return;
+  const nx=Math.random()*.75+.12,ny=Math.random()*.6+.15;
+  state.direction=nx>state.x?1:-1; bubu.classList.toggle('flip-x',state.direction<0);
+  moveBubu(nx,ny,true);
+}
+function tick() {
+  if(state.dragging) return;
+  // 饱腹每1.5小时降20点，tick每30秒执行，每次减20/(1.5*120)=20/180≈0.111
+  state.fullness=Math.max(0,state.fullness-0.111);
+  // 心情每1小时降20点，每次减20/120≈0.167
+  if(state.mood>0) state.mood=Math.max(0,state.mood-0.167);
+  if(state.fullness<25&&Math.random()>.7) showBubble('肚子餓了啦… (´；ω；`)');
+  if(state.fullness>50&&state.mood<40&&!state.sleeping&&Math.random()>.8) {
+    state.sleeping=true; bubu.classList.add('sleeping'); showBubble('Zzz… 好睏喔…');
+  }
+  updateBars(); saveState();
+}
+function toggleDress() { document.getElementById('dressModal').classList.toggle('open'); }
+function closeDress(e) { if(e.target.id==='dressModal') toggleDress(); }
+// 换装事件委托
+document.getElementById('dressGrid').addEventListener('click', function(e) {
+  const item = e.target.closest('.dress-item');
+  if (!item) return;
+  setSkin(item.dataset.skin);
+});
+function toggleFood() { document.getElementById('foodModal').classList.toggle('open'); }
+function closeFood(e) { if(e.target.id==='foodModal') { document.getElementById('foodModal').classList.remove('open'); } }
+function setSkin(type,save=true) {
+  state.skin=type;
+  // 用缓存的图片对象直接设置src，避免重新加载解码
+  const src = SKINS[type];
+  if (_skinCache[src] && _skinCache[src].complete) {
+    bubuImg.src = src;
+  } else {
+    bubuImg.src = src;
+  }
+  document.querySelectorAll('.dress-item').forEach(el=>{ el.classList.toggle('active',el.dataset.skin===type); });
+  if(save) saveState();
+}
+Array.prototype.random=function(){ return this[Math.floor(Math.random()*this.length)]; };
+
+loadState();
+decayTimer=setInterval(tick,30000);
+setTimeout(()=>showBubble('嗨～我是卜卜啦 (◕‿◕✿)'),500);
+
+// ===== 提示弹窗：用户手动关闭，不自动消失 =====
+
+// ===== 心情/饱腹值面板：可拖拽 =====
+const statusPanel = document.getElementById('statusPanel');
+let spDragging = false, spStartX, spStartY, spOrigLeft, spOrigTop;
+function spDown(e) {
+  spDragging = true; statusPanel.classList.add('dragging');
+  const cx = e.touches ? e.touches[0].clientX : e.clientX;
+  const cy = e.touches ? e.touches[0].clientY : e.clientY;
+  spStartX = cx; spStartY = cy;
+  spOrigLeft = statusPanel.offsetLeft; spOrigTop = statusPanel.offsetTop;
+  const rect = statusPanel.getBoundingClientRect();
+  statusPanel.style.right = 'auto'; statusPanel.style.top = rect.top + 'px';
+  statusPanel.style.left = rect.left + 'px'; statusPanel.style.position = 'fixed';
+  e.preventDefault();
+}
+function spMove(e) {
+  if (!spDragging) return;
+  const cx = e.touches ? e.touches[0].clientX : e.clientX;
+  const cy = e.touches ? e.touches[0].clientY : e.clientY;
+  statusPanel.style.left = Math.max(0, Math.min(window.innerWidth - statusPanel.offsetWidth, spOrigLeft + cx - spStartX)) + 'px';
+  statusPanel.style.top = Math.max(0, Math.min(window.innerHeight - statusPanel.offsetHeight, spOrigTop + cy - spStartY)) + 'px';
+  e.preventDefault();
+}
+function spUp() {
+  if (!spDragging) return;
+  spDragging = false; statusPanel.classList.remove('dragging');
+  try { localStorage.setItem('status_panel_pos', JSON.stringify({ left: statusPanel.style.left, top: statusPanel.style.top })); } catch(e) {}
+}
+statusPanel.addEventListener('mousedown', spDown);
+statusPanel.addEventListener('touchstart', spDown, {passive: false});
+window.addEventListener('mousemove', spMove);
+window.addEventListener('touchmove', spMove, {passive: false});
+window.addEventListener('mouseup', spUp);
+window.addEventListener('touchend', spUp);
+try {
+  const saved = JSON.parse(localStorage.getItem('status_panel_pos'));
+  if (saved && saved.left && saved.top) { statusPanel.style.right = 'auto'; statusPanel.style.left = saved.left; statusPanel.style.top = saved.top; }
+} catch(e) {}
+
+// ===== 歌曲管理 =====
+// 内置歌曲（不可删除）
+const BUILTIN_SONGS = {
+  haohao: { id:'haohao', file:'haohao-song.mp3', title:'好好（想把你写成一首歌）', icon:'💛', artist:'五月天', builtin:true },
+  yuehan: { id:'yuehan', file:'yuehan-lannong.mp3', title:'约翰蓝侬', icon:'🎸', artist:'五月天', builtin:true },
+  pingguo: { id:'pingguo', file:'yike-pingguo.mp3', title:'一颗苹果', icon:'🍎', artist:'五月天', builtin:true },
+  ruyan: { id:'ruyan', file:'ruyan-song.mp3', title:'如烟', icon:'🚬', artist:'五月天', builtin:true },
+  chunzhen: { id:'chunzhen', file:'chunzhen-song.mp3', title:'纯真', icon:'🌟', artist:'五月天', builtin:true },
+  cangjie: { id:'cangjie', file:'cangjie-song.mp3', title:'仓颉', icon:'✍️', artist:'五月天', builtin:true },
+  tianshi: { id:'tianshi', file:'tianshi-song.mp3', title:'天使', icon:'🪽', artist:'五月天', builtin:true }
+};
+const SONG_ORDER = ['haohao','yuehan','pingguo','ruyan','chunzhen','cangjie','tianshi'];
+
+// 从 localStorage 加载自定义歌曲
+function loadCustomSongs() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('custom_songs'));
+    return saved || [];
+  } catch(e) { return []; }
+}
+function saveCustomSongs(list) {
+  try { localStorage.setItem('custom_songs', JSON.stringify(list)); } catch(e) {}
+}
+
+function getAllSongs() {
+  const builtin = SONG_ORDER.map(id => BUILTIN_SONGS[id]);
+  const custom = loadCustomSongs();
+  return [...builtin, ...custom];
+}
+
+function getSongById(songId) {
+  if (BUILTIN_SONGS[songId]) return BUILTIN_SONGS[songId];
+  const custom = loadCustomSongs();
+  return custom.find(s => s.id === songId);
+}
+
+// 渲染歌曲列表
+function renderSongList() {
+  const container = document.getElementById('songListContainer');
+  const songs = getAllSongs();
+  container.innerHTML = songs.map(s => {
+    const isPlaying = currentSong === s.id && musicPlaying;
+    const isLoading = currentSong === s.id && !musicPlaying;
+    return `<div class="song-item${isPlaying?' playing':''}" data-song="${s.id}">
+      <span class="song-icon">${s.icon}</span>
+      <div class="song-info">
+        <span class="song-title">${s.title}</span>
+        <span class="song-artist">${s.artist||'未知'}</span>
+      </div>
+      <span class="song-status">${isPlaying?'♪ 播放中':''}${isLoading?'加载中…':''}</span>
+      ${s.builtin ? '' : `<button class="delete-btn">✕</button>`}
+    </div>`;
+  }).join('');
+}
+
+// ===== 歌曲列表事件委托 =====
+document.getElementById('songListContainer').addEventListener('click', function(e) {
+  // 点击删除按钮
+  if (e.target.classList.contains('delete-btn')) {
+    const item = e.target.closest('.song-item');
+    if (item) deleteSong(item.dataset.song);
+    return;
+  }
+  // 点击歌曲项
+  const item = e.target.closest('.song-item');
+  if (!item) return;
+  const songId = item.dataset.song;
+  if (item.classList.contains('show-delete')) {
+    item.classList.remove('show-delete');
+    return;
+  }
+  selectSong(songId);
+});
+
+// 长按检测（移动端）
+let songLongPressTimer;
+document.getElementById('songListContainer').addEventListener('touchstart', function(e) {
+  const item = e.target.closest('.song-item');
+  if (!item) return;
+  const songId = item.dataset.song;
+  songLongPressTimer = setTimeout(() => {
+    toggleSongDelete(songId);
+  }, 600);
+}, {passive: true});
+document.getElementById('songListContainer').addEventListener('touchend', function() {
+  clearTimeout(songLongPressTimer);
+});
+document.getElementById('songListContainer').addEventListener('touchmove', function() {
+  clearTimeout(songLongPressTimer);
+});
+
+function toggleSongDelete(songId) {
+  clearTimeout(songLongPressTimer);
+  const item = document.querySelector(`.song-item[data-song="${songId}"]`);
+  if (!item) return;
+  // 关闭其他
+  document.querySelectorAll('.song-item.show-delete').forEach(el => {
+    if (el.dataset.song !== songId) el.classList.remove('show-delete');
+  });
+  item.classList.toggle('show-delete');
+}
+
+function deleteSong(songId) {
+  const song = getSongById(songId);
+  if (!song || song.builtin) return;
+  if (!confirm(`确定删除「${song.title}」吗？`)) return;
+  
+  // 如果正在播放这首歌，先停止
+  if (currentSong === songId) {
+    bgMusic.pause(); musicPlaying = false; currentSong = null;
+    clearInterval(lyricTimer); lyricBubble.classList.remove('show');
+    musicIcon.textContent = '🎵'; musicLabel.textContent = '选择歌曲';
+    musicCtrl.classList.remove('playing');
+  }
+  
+  let custom = loadCustomSongs();
+  custom = custom.filter(s => s.id !== songId);
+  saveCustomSongs(custom);
+  renderSongList();
+}
+
+// ========== 背景音乐 + LRC 歌词 ==========
+const bgMusic = document.getElementById('bgMusic');
+const musicCtrl = document.getElementById('musicCtrl');
+const musicIcon = document.getElementById('musicIcon');
+const musicLabel = document.getElementById('musicLabel');
+const lyricBubble = document.getElementById('lyricBubble');
+const lyricSettings = document.getElementById('lyricSettings');
+const volumeBarWrap = document.getElementById('volumeBarWrap');
+const volumeSlider = document.getElementById('volumeSlider');
+const volumeVal = document.getElementById('volumeVal');
+const audioFile = document.getElementById('audioFile');
+let musicPlaying = false;
+let musicLoaded = false;
+let currentSong = null;
+let lyricTimer;
+let playMode = 'repeat';
+
+let lyricSettings_ = { fontSize: 15, fontColor: '#ffffff', bgColor: 'rgba(0,0,0,0.75)', scale: 1 };
+const COLOR_PRESETS = ['#ffffff','#ffeb3b','#ff9800','#ff5252','#e040fb','#00e5ff','#76ff03','#ffd740','#ff80ab','#b388ff'];
+const BG_PRESETS = ['rgba(0,0,0,0.75)','rgba(33,33,33,0.8)','rgba(63,81,181,0.75)','rgba(233,30,99,0.7)','rgba(0,150,136,0.75)','rgba(255,87,34,0.7)','rgba(156,39,176,0.7)','rgba(76,175,80,0.7)'];
+let fontColorIdx = 0, bgColorIdx = 0;
+
+function applyLyricStyle() {
+  document.documentElement.style.setProperty('--lyric-font-size', lyricSettings_.fontSize + 'px');
+  document.documentElement.style.setProperty('--lyric-color', lyricSettings_.fontColor);
+  document.documentElement.style.setProperty('--lyric-bg', lyricSettings_.bgColor);
+  document.documentElement.style.setProperty('--lyric-scale', lyricSettings_.scale);
+  document.getElementById('fontSizeSlider').value = lyricSettings_.fontSize;
+  document.getElementById('fontSizeVal').textContent = lyricSettings_.fontSize;
+  document.getElementById('fontColorPicker').value = lyricSettings_.fontColor;
+  document.getElementById('bgColorPicker').value = toHex(lyricSettings_.bgColor);
+  document.getElementById('fontColorSwatch').style.background = lyricSettings_.fontColor;
+  document.getElementById('bgColorSwatch').style.background = lyricSettings_.bgColor;
+  document.getElementById('scaleVal').textContent = Math.round(lyricSettings_.scale * 100) + '%';
+}
+
+function toHex(c) {
+  if (c.startsWith('#')) return c;
+  const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!m) return '#000000';
+  return '#' + [m[1],m[2],m[3]].map(x=>parseInt(x).toString(16).padStart(2,'0')).join('');
+}
+function toRgba(hex) {
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},0.75)`;
+}
+function saveLyricSettings() {
+  try { localStorage.setItem('lyric_settings', JSON.stringify(lyricSettings_)); } catch(e) {}
+}
+
+document.getElementById('fontSizeSlider').addEventListener('input', function() {
+  lyricSettings_.fontSize = parseInt(this.value); applyLyricStyle(); saveLyricSettings();
+});
+document.getElementById('fontColorPicker').addEventListener('input', function() {
+  lyricSettings_.fontColor = this.value; applyLyricStyle(); saveLyricSettings();
+});
+document.getElementById('bgColorPicker').addEventListener('input', function() {
+  lyricSettings_.bgColor = toRgba(this.value); applyLyricStyle(); saveLyricSettings();
+});
+document.getElementById('fontColorSwatch').addEventListener('click', function(e) {
+  if (e.target.tagName === 'INPUT') return;
+  fontColorIdx = (fontColorIdx + 1) % COLOR_PRESETS.length;
+  lyricSettings_.fontColor = COLOR_PRESETS[fontColorIdx]; applyLyricStyle(); saveLyricSettings();
+});
+document.getElementById('bgColorSwatch').addEventListener('click', function(e) {
+  if (e.target.tagName === 'INPUT') return;
+  bgColorIdx = (bgColorIdx + 1) % BG_PRESETS.length;
+  lyricSettings_.bgColor = BG_PRESETS[bgColorIdx]; applyLyricStyle(); saveLyricSettings();
+});
+
+// 缩放按钮
+document.getElementById('scaleUp').addEventListener('click', function() {
+  lyricSettings_.scale = Math.min(2.5, Math.round((lyricSettings_.scale + 0.1) * 10) / 10);
+  applyLyricStyle(); saveLyricSettings();
+});
+document.getElementById('scaleDown').addEventListener('click', function() {
+  lyricSettings_.scale = Math.max(0.5, Math.round((lyricSettings_.scale - 0.1) * 10) / 10);
+  applyLyricStyle(); saveLyricSettings();
+});
+
+try {
+  const saved = JSON.parse(localStorage.getItem('lyric_settings'));
+  if (saved) { lyricSettings_ = {...lyricSettings_, ...saved}; }
+} catch(e) {}
+applyLyricStyle();
+
+// LRC 歌词数据
+const LYRICS = {
+  haohao: [[15,'想把你写成一首歌'],[18,'想养一只猫'],[22,'想要回到每个场景'],[25,'拨慢每只表'],[29,'我们在小孩和大人的转角'],[33,'盖一座城堡'],[36,'我们好好 好到疯掉'],[40,'像找回失散多年双胞'],[44,'生命再长不过'],[46,'烟火 落下了眼角'],[51,'世界再大不过'],[53,'你我 凝视的微笑'],[57,'在所有流逝风景与人群中'],[61,'你对我最好'],[64,'一切好好 是否太好'],[68,'没有人知道'],[71,'你和我背着空空的书包'],[75,'逃出名为日常的监牢'],[79,'忘了要长大'],[81,'忘了要变老'],[83,'忘了时间有脚'],[94,'最安静的时刻'],[97,'回忆 总是最喧嚣'],[101,'最喧嚣的狂欢'],[104,'寂寞 包围着孤岛'],[108,'还以为驯服想念能陪伴我'],[112,'像一只家猫'],[115,'它就窝在 沙发一角'],[118,'却不肯睡着'],[121,'你和我曾有满满的羽毛'],[126,'跳着名为青春的舞蹈'],[130,'不知道未来'],[131,'不知道烦恼'],[133,'不知那些日子'],[135,'会是那么少'],[150,'时间的电影 结局才知道'],[154,'原来大人已没有童谣'],[158,'最后的叮咛'],[160,'最后的拥抱'],[162,'我们红着眼笑'],[165,'我们都要把自己照顾好'],[169,'好到遗憾无法打扰'],[173,'好好的生活'],[174,'好好的变老'],[176,'好好假装我'],[178,'已经把你忘掉']],
+  yuehan: [[15,'那年冬天 子弹 它给了你自由'],[19,'没了 躯壳 就活在人们心中'],[23,'看着 今天 你会笑还是会摇头'],[29,'整个世界 曾经 都跟着你作梦'],[33,'如今 和平 依然在歌曲里头'],[37,'猜忌 战火 还跟着我一起生活'],[43,'能不能暂时把你的勇气给我'],[47,'在梦想快消失的时候'],[50,'让我的歌 用力的穿过天空'],[55,'为我爱的人 做一秒英雄'],[65,'一颗红豆 为何 想单挑这宇宙'],[69,'都要 怪你 在我心中播了种'],[72,'一把 吉他 就想对抗万千炮火'],[79,'玩着游戏 出糗 喧闹的摄影棚'],[83,'怪兽 石头 默默的吐在厕所'],[86,'Ok 再来 要世界为我们感动'],[93,'能不能暂时把你的勇气给我'],[97,'在梦想快消失的时候'],[100,'让我的歌 用力的穿过天空'],[104,'为爱我的人 做一秒英雄'],[107,'能不能暂时把你的梦想给我'],[112,'在勇气快消失的时候'],[115,'总有一天 要人们叫我披头'],[119,'最后没成功 也作过最美的梦'],[158,'能不能暂时把你的勇气给我'],[161,'在梦想快消失的时候'],[164,'让我的歌 用力的穿过天空'],[168,'为我爱的人 做一秒英雄'],[172,'能不能暂时把你的梦想给我'],[176,'在勇气快消失的时候'],[180,'总有一天 要人们叫我披头'],[184,'最后没成功 也作过最美的梦'],[191,'没有遗憾 最美的梦']],
+  pingguo: [[21,'经过了漫长的等候 梦想是梦想 我还是一个我'],[28,'那时间忘记挽留 最美时候 不经意匆匆的放过'],[35,'曾经想拥抱的彩虹 盛开的花朵 那纯真的笑容'],[43,'突然有风吹过 那一转眼只剩我'],[50,'我不懂 人世间的那些愁 他为什么要缠著我'],[55,'到底这会是谁的错 还是我不放手'],[59,'喔 人世间的那些愁 这世界给我的幽默'],[62,'这是不是要告诉我 潮起终究潮落'],[67,'总要有人来陪我 咽下苦果 再尝一点美梦'],[74,'要等你先开口 那冬天才会走'],[81,'有些人经过我身旁 住在我脑中 在我心里钻洞'],[89,'有些人变成相片 堆在角落 灰尘像雪一般冰冻'],[111,'时间如果可以倒流 我想我还是 会卯起来蹉跎'],[118,'反正就这样吧 我知道我 努力过'],[126,'我想到 遥远遥远的以后 会不会有人知道我'],[130,'在这个寂寞的星球 曾这样的活过'],[134,'喔 遥远遥远的以后 天长和地久的尽头'],[138,'应该没有人能抢走 我永远的感动'],[142,'总要有一首我的歌 大声唱过 再看天地辽阔'],[150,'活著不多不少 幸福刚好够用'],[157,'活著其实很好 再吃一颗苹果']],
+  ruyan: [[10,'我坐在床前 望著窗外 回忆满天'],[17,'生命是华丽错觉 时间是贼 偷走一切'],[24,'七岁的那一年 抓住那只蝉 以为能抓住夏天'],[33,'十七岁的那年 吻过他的脸 就以为和他能永远'],[40,'有没有那么一种永远 永远不改变'],[45,'拥抱过的美丽 都再也不破碎'],[49,'让险峻岁月不能在脸上撒野'],[53,'让生离和死别都遥远'],[56,'有谁能听见'],[61,'我坐在床前 转过头看 谁在沉睡'],[68,'那一张苍老的脸 好像是我 紧闭双眼'],[75,'曾经是爱我的 和我深爱的 都围绕在我身边'],[83,'带不走的那些 遗憾和眷恋 都化成最后一滴泪'],[90,'有没有那么一滴眼泪 能洗掉后悔'],[94,'化成大雨降落在 回不去的街'],[98,'再给我一次机会 将故事改写'],[102,'还欠了他一生的一句抱歉'],[109,'有没有那么一个世界 永远不天黑'],[113,'星星太阳万物都 听我的指挥'],[117,'月亮不忙著圆缺 春天不走远'],[121,'树梢紧紧拥抱著树叶'],[124,'有谁能听见'],[129,'耳际 眼前 此生重演'],[133,'是我来自漆黑 而又回归漆黑'],[137,'人间 瞬间 天地之间'],[141,'下次我 又是谁'],[145,'有没有那么一朵玫瑰 永远不凋谢'],[149,'永远骄傲和完美 永远不妥协'],[153,'为何人生最后会像一张纸屑'],[157,'还不如一片花瓣曾经鲜艳'],[164,'有没有那么一张书签 停止那一天'],[168,'最单纯的笑脸和 最美那一年'],[172,'书包里面装满了蛋糕和汽水'],[176,'双眼只有无猜和无邪'],[180,'让我们无法无天'],[184,'有没有那么一首诗篇 找不到句点'],[188,'青春永远定居在 我们的岁月'],[192,'男孩和女孩都有吉他和舞鞋'],[196,'笑忘人间的苦痛 只有甜美'],[204,'有没有那么一个明天 重头活一遍'],[208,'让我再次感受曾 挥霍的昨天'],[212,'无论生存或生活 我都不浪费'],[216,'不让故事这么的后悔'],[220,'有谁能听见 我不要告别'],[228,'我坐在床前 看著指尖 已经如烟']],
+  chunzhen: [[12,'长长的路上 我想我们是朋友'],[18,'如果有期待 我想最好是不说'],[25,'你总是微笑的 你总是不开口'],[31,'世界被你 掌握'],[37,'月亮绕地球 地球绕著太阳走'],[43,'我以为世界是座 宁静的宇宙'],[50,'今晚的天空有一颗流星划过'],[56,'在预言著 什么'],[62,'在无声之中你拉起了我的手'],[69,'我怎么感觉整个黑夜 在震动'],[75,'耳朵里我听到了 心跳的节奏'],[81,'星星在闪烁 你会怎么说'],[89,'你心中一定有座 浓雾的湖泊'],[96,'任凭月光再皎洁 照也照不透'],[102,'你眼中闪烁湖面 无边的温柔'],[108,'那波光在 诱惑'],[115,'在无声之中你拉起了我的手'],[121,'我怎么感觉整个黑夜 在震动'],[127,'耳朵里我听到了 心跳的节奏'],[134,'星星在闪烁 你会怎么说'],[141,'在无声之中你拉起了我的手'],[148,'我怎么感觉整个黑夜 在震动'],[154,'耳朵里我听到了 心跳的节奏'],[160,'星星在闪烁 你会怎么说'],[169,'你已经有他就不应该 再有我'],[175,'世界的纯真此刻为你 有迷惑'],[182,'我想我应该轻轻 放开你的手'],[188,'我却没有力气 这么做']],
+  cangjie: [[21,'一颗葡萄有多甜美'],[27,'用尽了所有的 图腾和语言 描写'],[33,'想一个人有多想念'],[36,'那又是文字失效瞬间'],[42,'结一个纪念的绳结'],[48,'记录你离去后 万语和千言 瓦解'],[54,'升起了慌张的狼烟'],[57,'我遗落在最孤独史前 的荒野'],[66,'多遥远 多纠结 多想念 多无法描写'],[72,'疼痛 和疯癫 你都看不见'],[78,'想穿越 想飞天 想变成 造字的仓颉'],[84,'写出 能让你快回来 的诗篇'],[92,'一只蝴蝶有多鲜艳'],[98,'能不能飞越过 猜忌和冷漠 世界'],[104,'给你的简讯和留言'],[108,'说不清万分之一追悔'],[114,'当星宿都沉默山岳'],[120,'只盼你会抬头 看我寄托的 弯月'],[126,'当一个文明即将熄灭'],[132,'有什么证明你我存在 的岁月'],[140,'多遥远 多纠结 多想念 多无法描写'],[146,'疼痛 和疯癫 你都看不见'],[152,'想穿越 想飞天 想变成 造字的仓颉'],[158,'创造 能让你想起我 的字眼'],[168,'多遥远 多纠结 多想念 多无法描写'],[174,'疼痛 和疯癫 你都看不见'],[180,'想穿越 想飞天 想变成 造字的仓颉'],[186,'写出 能让你快回来 的诗'],[194,'需要你 需要你 需要你 想逆转时间'],[200,'回到 最开始 有你的世界'],[206,'想穿越 想飞天 想变成 造字的仓颉'],[212,'写出 让宇宙能重来 的诗篇'],[224,'天雨粟 鬼夜哭 思念漫太古']],
+  tianshi: [[15,'你就是我的天使'],[18,'保护著我的天使'],[22,'从此我再没有忧伤'],[28,'你就是我的天使'],[31,'给我快乐的天使'],[34,'甚至我学会了飞翔'],[40,'飞过人间的无常'],[43,'才懂爱才是宝藏'],[46,'不管世界变得怎么样'],[49,'只要有你就会是天堂'],[55,'像孩子依赖著肩膀'],[58,'像眼泪依赖著脸庞'],[62,'你就像天使一样'],[65,'给我依赖 给我力量'],[71,'像诗人依赖著月亮'],[74,'像海豚依赖海洋'],[77,'你是天使 你是天使'],[80,'你是我最初和最后的天堂'],[88,'你就是我的天使'],[91,'保护著我的天使'],[94,'从此我再没有忧伤'],[100,'你就是我的天使'],[103,'给我快乐的天使'],[106,'甚至我学会了飞翔'],[112,'飞过人间的无常'],[115,'才懂爱才是宝藏'],[118,'不管世界变得怎么样'],[121,'只要有你就会是天堂'],[127,'像孩子依赖著肩膀'],[130,'像眼泪依赖著脸庞'],[134,'你就像天使一样'],[137,'给我依赖 给我力量'],[143,'像诗人依赖著月亮'],[146,'像海豚依赖海洋'],[149,'你是天使 你是天使'],[152,'你是我最初和最后的天堂'],[160,'像孩子依赖著肩膀'],[163,'像眼泪依赖著脸庞'],[167,'你就像天使一样'],[170,'给我依赖 给我力量'],[176,'像诗人依赖著月亮'],[179,'像海豚依赖海洋'],[182,'你是天使 你是天使'],[185,'你是我最初和最后的天堂'],[193,'像孩子依赖著肩膀'],[196,'像眼泪依赖著脸庞'],[200,'你就像天使一样'],[203,'给我依赖 给我力量'],[209,'像诗人依赖著月亮'],[212,'像海豚依赖海洋'],[215,'你是天使 你是天使'],[218,'你是我最初和最后的天堂']]
+};
+
+function toggleMusicModal() {
+  document.getElementById('musicModal').classList.toggle('open');
+  renderSongList();
+}
+function closeMusicModal(e) { if(e.target.id==='musicModal') document.getElementById('musicModal').classList.remove('open'); }
+
+function selectSong(songId) {
+  const song = getSongById(songId);
+  if (!song) return;
+  
+  if (currentSong === songId && musicPlaying) {
+    bgMusic.pause(); musicPlaying = false; currentSong = null;
+    clearInterval(lyricTimer); lyricBubble.classList.remove('show');
+    musicIcon.textContent = '🎵'; musicLabel.textContent = '选择歌曲';
+    musicCtrl.classList.remove('playing'); renderSongList();
+    return;
+  }
+  
+  // 立即在列表中显示加载状态
+  currentSong = songId;
+  renderSongList();
+  
+  bgMusic.src = song.file;
+  bgMusic.load();
+  musicLoaded = true;
+  
+  const playPromise = bgMusic.play();
+  if (playPromise !== undefined) {
+    playPromise.then(() => {
+      musicPlaying = true; musicIcon.textContent = '🎵';
+      musicLabel.textContent = song.title; musicCtrl.classList.add('playing');
+      renderSongList(); startLyricSync(songId);
+      document.getElementById('musicModal').classList.remove('open');
+    }).catch(() => {
+      const audio = new Audio(song.file);
+      audio.play().then(() => {
+        bgMusic.src = song.file; bgMusic.load();
+        bgMusic.play().then(() => {
+          musicPlaying = true; musicIcon.textContent = '🎵';
+          musicLabel.textContent = song.title; musicCtrl.classList.add('playing');
+          renderSongList(); startLyricSync(songId);
+          document.getElementById('musicModal').classList.remove('open');
+        }).catch(() => {});
+      }).catch(() => { alert('播放失败，请再点一次哦～'); });
+    });
+  }
+}
+
+function startLyricSync(songId) {
+  clearInterval(lyricTimer); lyricBubble.classList.remove('show');
+  const lrc = LYRICS[songId];
+  if (!lrc) return;
+  lastLyricLine = '';
+  lyricTimer = setInterval(() => {
+    if (!musicPlaying) return;
+    const t = bgMusic.currentTime;
+    // 天使提前 0.25 秒，其他歌提前 0.5 秒
+    const lookahead = t + (songId === 'tianshi' ? 0.25 : 0.5);
+    let currentLine = null;
+    for (let i = 0; i < lrc.length; i++) {
+      if (lrc[i][0] <= lookahead) currentLine = lrc[i][1];
+    }
+    if (!currentLine) {
+      const idleEmojis = ['♪～ (◕‿◕✿)', '♫ 聽歌中… (´▽`ʃ♡ƪ)', '🎵～ 好好聽捏～'];
+      currentLine = idleEmojis[Math.floor(t / 5) % idleEmojis.length];
+    }
+    if (currentLine !== lastLyricLine) {
+      lastLyricLine = currentLine;
+      if (concertMode) {
+        bubble.textContent = currentLine; bubble.classList.add('show');
+        clearTimeout(bubbleTimer); lyricBubble.classList.remove('show');
+      } else {
+        lyricBubble.textContent = currentLine; lyricBubble.classList.add('show');
+      }
+    }
+  }, 250);
+}
+
+// 自定义上传
+audioFile.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const displayName = file.name.replace(/\.(mp3|m4a|wav|flac|ogg)$/i,'');
+  const songId = 'custom_' + Date.now();
+  
+  // 先加入歌曲列表
+  const custom = loadCustomSongs();
+  custom.push({ id: songId, file: url, title: displayName, icon: '📁', artist: '自定义', builtin: false });
+  saveCustomSongs(custom);
+  
+  // 播放
+  bgMusic.src = url; bgMusic.load();
+  musicLoaded = true; currentSong = songId;
+  bgMusic.play().then(() => {
+    musicPlaying = true; musicIcon.textContent = '🎵';
+    musicLabel.textContent = displayName; musicCtrl.classList.add('playing');
+    clearInterval(lyricTimer); lyricBubble.classList.remove('show');
+    document.getElementById('musicModal').classList.remove('open');
+    renderSongList();
+  }).catch(() => {
+    setTimeout(() => {
+      bgMusic.play().then(() => {
+        musicPlaying = true; musicIcon.textContent = '🎵';
+        musicLabel.textContent = displayName; musicCtrl.classList.add('playing');
+        document.getElementById('musicModal').classList.remove('open');
+        renderSongList();
+      }).catch(() => { alert('播放失败，再试一次哦～'); });
+    }, 200);
+  });
+});
+
+bgMusic.addEventListener('ended', () => {
+  if (!musicPlaying || !currentSong) return;
+  // 听完一首完整歌曲：奖励 5 币 + 4 精力
+  state.coins += 5;
+  state.energy += 4;
+  updateBars(); saveState();
+  
+  if (playMode === 'repeat') {
+    bgMusic.currentTime = 0; bgMusic.play();
+    if (currentSong) startLyricSync(currentSong);
+  } else {
+    playNextSong();
+  }
+});
+
+musicCtrl.addEventListener('dblclick', (e) => { e.stopPropagation(); volumeBarWrap.classList.toggle('show'); });
+volumeSlider.addEventListener('input', () => { bgMusic.volume = volumeSlider.value/100; volumeVal.textContent = volumeSlider.value; });
+
+// ===== 播放模式切换 =====
+function togglePlayMode() {
+  playMode = playMode === 'repeat' ? 'list' : 'repeat';
+  updatePlayModeUI();
+  try { localStorage.setItem('play_mode', playMode); } catch(e) {}
+}
+function updatePlayModeUI() {
+  if (playMode === 'repeat') {
+    document.getElementById('playModeIcon').textContent = '🔂';
+    document.getElementById('playModeText').textContent = '单曲循环';
+  } else {
+    document.getElementById('playModeIcon').textContent = '🔀';
+    document.getElementById('playModeText').textContent = '列表顺序';
+  }
+}
+function playNextSong() {
+  const allSongs = getAllSongs();
+  if (allSongs.length === 0) { bgMusic.currentTime = 0; bgMusic.play(); return; }
+  const idx = allSongs.findIndex(s => s.id === currentSong);
+  const nextIdx = idx < 0 ? 0 : (idx + 1) % allSongs.length;
+  const song = allSongs[nextIdx];
+  bgMusic.src = song.file; currentSong = song.id;
+  bgMusic.play().then(() => {
+    musicPlaying = true; musicIcon.textContent = '🎵';
+    musicLabel.textContent = song.title; musicCtrl.classList.add('playing');
+    renderSongList();
+    if (LYRICS[song.id]) startLyricSync(song.id);
+    else { clearInterval(lyricTimer); lyricBubble.classList.remove('show'); }
+  }).catch(() => {});
+}
+
+try {
+  const saved = localStorage.getItem('play_mode');
+  if (saved === 'list' || saved === 'repeat') playMode = saved;
+} catch(e) {}
+updatePlayModeUI();
+
+// ===== 歌词气泡可拖拽 =====
+let lbDragging = false, lbStartX, lbStartY, lbOrigLeft, lbOrigTop, lbOrigW, lbOrigH;
+function lbDown(e) {
+  if (concertMode) return;
+  lbDragging = true; lyricBubble.classList.add('dragging');
+  const cx = e.touches ? e.touches[0].clientX : e.clientX;
+  const cy = e.touches ? e.touches[0].clientY : e.clientY;
+  lbStartX = cx; lbStartY = cy;
+  const rect = lyricBubble.getBoundingClientRect();
+  lbOrigW = rect.width; lbOrigH = rect.height;
+  lyricBubble.style.width = lbOrigW + 'px'; lyricBubble.style.height = lbOrigH + 'px';
+  lyricBubble.style.left = rect.left + 'px'; lyricBubble.style.top = rect.top + 'px';
+  lyricBubble.style.transform = 'none'; lyricBubble.style.bottom = 'auto';
+  lbOrigLeft = rect.left; lbOrigTop = rect.top;
+  e.preventDefault(); e.stopPropagation();
+}
+function lbMove(e) {
+  if (!lbDragging) return;
+  const cx = e.touches ? e.touches[0].clientX : e.clientX;
+  const cy = e.touches ? e.touches[0].clientY : e.clientY;
+  lyricBubble.style.left = Math.max(0, Math.min(window.innerWidth - lbOrigW, lbOrigLeft + cx - lbStartX)) + 'px';
+  lyricBubble.style.top = Math.max(0, Math.min(window.innerHeight - lbOrigH, lbOrigTop + cy - lbStartY)) + 'px';
+  e.preventDefault();
+}
+function lbUp() {
+  if (!lbDragging) return;
+  lbDragging = false; lyricBubble.classList.remove('dragging');
+  lyricBubble.style.width = ''; lyricBubble.style.height = '';
+  try { localStorage.setItem('lyric_bubble_pos', JSON.stringify({ left: lyricBubble.style.left, top: lyricBubble.style.top })); } catch(e) {}
+}
+lyricBubble.addEventListener('mousedown', lbDown);
+lyricBubble.addEventListener('touchstart', lbDown, {passive: false});
+window.addEventListener('mousemove', lbMove);
+window.addEventListener('touchmove', lbMove, {passive: false});
+window.addEventListener('mouseup', lbUp);
+window.addEventListener('touchend', lbUp);
+try {
+  const saved = JSON.parse(localStorage.getItem('lyric_bubble_pos'));
+  if (saved && saved.left && saved.top) { lyricBubble.style.left = saved.left; lyricBubble.style.top = saved.top; lyricBubble.style.transform = 'none'; }
+} catch(e) {}
+
+// 双击歌词气泡显示/隐藏设置栏
+lyricBubble.addEventListener('dblclick', function(e) {
+  e.stopPropagation();
+  lyricSettings.classList.toggle('show');
+  const lbRect = lyricBubble.getBoundingClientRect();
+  lyricSettings.style.left = Math.min(lbRect.left, window.innerWidth - 320) + 'px';
+  lyricSettings.style.top = (lbRect.bottom + 6) + 'px';
+});
+
+// ========== 演唱会模式 ==========
+const concertOverlay = document.getElementById('concertOverlay');
+const stageLights = document.getElementById('stageLights');
+const musicNotes = document.getElementById('musicNotes');
+const crowd = document.getElementById('crowd');
+const microphone = document.getElementById('microphone');
+let concertMode = false;
+let concertTimer;
+
+function toggleConcert() { concertMode = !concertMode; concertMode ? startConcert() : stopConcert(); }
+
+function startConcert() {
+  bubu.classList.add('concert-mode'); stage.classList.add('concert-mode-stage');
+  concertOverlay.classList.add('on'); stageLights.classList.add('on');
+  microphone.classList.add('show'); crowd.classList.add('on');
+  lyricBubble.classList.add('concert-hidden'); lyricBubble.classList.remove('show');
+  lyricSettings.classList.remove('show');
+  generateCrowd();
+  if (!musicPlaying && musicLoaded) {
+    bgMusic.play().then(() => { musicPlaying = true; musicCtrl.classList.add('playing'); musicIcon.textContent = '🎵'; }).catch(()=>{});
+  }
+  spawnNotes();
+  concertTimer = setInterval(() => { spawnNotes(); }, 3000);
+  if (!musicPlaying) showBubble('演唱會開始！🎤 (◕‿◕✿)');
+}
+function stopConcert() {
+  bubu.classList.remove('concert-mode'); stage.classList.remove('concert-mode-stage');
+  concertOverlay.classList.remove('on'); stageLights.classList.remove('on');
+  microphone.classList.remove('show'); crowd.classList.remove('on');
+  crowd.innerHTML = ''; clearInterval(concertTimer);
+  bubble.classList.remove('show');
+  lyricBubble.classList.remove('concert-hidden');
+  if (musicPlaying && currentSong) lyricBubble.classList.add('show');
+  showBubble('謝謝大家～下次見！(´▽`ʃ♡ƪ)');
+}
+function generateCrowd() {
+  crowd.innerHTML = '';
+  const colors = ['#ff1744','#00e5ff','#ffea00','#76ff03','#d500f9','#ff9100','#e040fb','#18ffff'];
+  for (let i = 0; i < 60; i++) {
+    const gs = document.createElement('div'); gs.className = 'glowstick';
+    gs.style.left = (Math.random()*95)+'%'; gs.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
+    gs.style.animationDelay = (Math.random()*1)+'s'; gs.style.animationDuration = (0.5+Math.random()*1.5)+'s';
+    crowd.appendChild(gs);
+  }
+}
+function spawnNotes() {
+  const notes = ['🎵','🎶','🎼','♪','♫','🎤','✨','💫'];
+  for (let i = 0; i < 5; i++) setTimeout(() => {
+    const note = document.createElement('div'); note.className = 'note-particle';
+    note.textContent = notes[Math.floor(Math.random()*notes.length)];
+    note.style.left = (20 + Math.random()*60)+'%'; note.style.top = (40 + Math.random()*40)+'%';
+    note.style.setProperty('--nx', (Math.random()*100-50)+'px');
+    note.style.setProperty('--nr', (Math.random()*60-30)+'deg');
+    note.style.animationDuration = (2+Math.random()*3)+'s';
+    musicNotes.appendChild(note); setTimeout(() => note.remove(), 4000);
+  }, i*200);
+}
+
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+// ===== 页面恢复可见时，立即追上当前播放进度 =====
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && musicPlaying && currentSong) {
+    // 重置 lastLine，强制下一轮同步立即更新歌词
+    if (typeof lastLyricLine !== 'undefined') lastLyricLine = '';
+    // 立即手动触发一次歌词同步
+    syncLyricOnce(currentSong);
+  }
+});
+
+// 立即同步一次歌词（不依赖 setInterval）
+let lastLyricLine = '';
+function syncLyricOnce(songId) {
+  const lrc = LYRICS[songId];
+  if (!lrc || !musicPlaying) return;
+  const t = bgMusic.currentTime;
+  const lookahead = t + (songId === 'tianshi' ? 0.25 : 0.5);
+  let currentLine = null;
+  for (let i = 0; i < lrc.length; i++) {
+    if (lrc[i][0] <= lookahead) currentLine = lrc[i][1];
+  }
+  if (!currentLine) {
+    const idleEmojis = ['♪～ (◕‿◕✿)', '♫ 聽歌中… (´▽`ʃ♡ƪ)', '🎵～ 好好聽捏～'];
+    currentLine = idleEmojis[Math.floor(t / 5) % idleEmojis.length];
+  }
+  if (currentLine !== lastLyricLine) {
+    lastLyricLine = currentLine;
+    if (concertMode) {
+      bubble.textContent = currentLine; bubble.classList.add('show');
+      clearTimeout(bubbleTimer); lyricBubble.classList.remove('show');
+    } else {
+      lyricBubble.textContent = currentLine; lyricBubble.classList.add('show');
+    }
+  }
+}
+</script>
+</body>
+</html>
